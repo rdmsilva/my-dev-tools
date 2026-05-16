@@ -13,9 +13,9 @@ echo "📦 Installing base packages for $OS..."
 
 case "$OS" in
     arch)
-        echo "  Installing base-devel, git, curl, wget, unzip, jq..."
+        echo "  Installing base-devel, git, curl, wget, unzip, jq, github-cli..."
         sudo pacman -S --noconfirm --needed \
-            base-devel git curl wget unzip jq \
+            base-devel git curl wget unzip jq github-cli \
             openssl openssh ca-certificates \
             file findutils grep sed gawk
         ;;
@@ -25,7 +25,7 @@ case "$OS" in
         sudo apt update
 
         packages_to_install=()
-        for pkg in build-essential git curl wget unzip jq \
+        for pkg in build-essential git curl wget unzip jq gh \
             software-properties-common apt-transport-https \
             ca-certificates gnupg lsb-release \
             openssl openssh-client; do
@@ -52,7 +52,7 @@ case "$OS" in
         fi
 
         echo "  Installing core packages..."
-        for pkg in git curl wget unzip jq openssl coreutils; do
+        for pkg in git curl wget unzip jq gh openssl coreutils; do
             if ! brew list --formula "$pkg" &>/dev/null; then
                 echo "  Installing $pkg..."
                 brew install "$pkg"
