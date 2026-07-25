@@ -60,18 +60,37 @@ run_script() {
     return $status
 }
 
+run_script_with_spinner() {
+    local script="$1"
+    local name="$2"
+
+    if command_exists gum; then
+        gum spin --spinner dot --title "Installing: $name" --show-output -- bash "$SCRIPT_DIR/scripts/$script"
+        local status=$?
+        if [ $status -eq 0 ]; then
+            log_ok "$name completed successfully"
+        else
+            log_error "$name failed with status $status"
+        fi
+        return $status
+    else
+        run_script "$script" "$name"
+    fi
+}
+
 install_selected() {
     local selections=("$@")
     for sel in "${selections[@]}"; do
         case $sel in
-            1) run_script "base/01-base.sh" "📦 Base system packages" ;;
-            2) run_script "shell/02-zsh.sh" "🐚 Zsh + Oh My Zsh" ;;
-            3) run_script "containers/03-docker.sh" "🐳 Docker" ;;
-            4) run_script "languages/04-python.sh" "🐍 Python (pyenv)" ;;
-            5) run_script "languages/05-node.sh" "🟢 Node.js (nvm)" ;;
-            6) run_script "languages/06-java.sh" "☕ Java (SDKMAN!)" ;;
-            7) run_script "editors/07-vim.sh" "📝 Vim + plugins" ;;
-            8) run_script "terminal/08-extras.sh" "🔧 Extra tools" ;;
+            "📦 Base system packages") run_script_with_spinner "base/01-base.sh" "Base system packages" ;;
+            "🐚 Zsh + Oh My Zsh") run_script_with_spinner "shell/02-zsh.sh" "Zsh + Oh My Zsh" ;;
+            "🐳 Docker") run_script_with_spinner "containers/03-docker.sh" "Docker" ;;
+            "🐍 Python (pyenv)") run_script_with_spinner "languages/04-python.sh" "Python (pyenv)" ;;
+            "🟢 Node.js (nvm)") run_script_with_spinner "languages/05-node.sh" "Node.js (nvm)" ;;
+            "☕ Java (SDKMAN!)") run_script_with_spinner "languages/06-java.sh" "Java (SDKMAN!)" ;;
+            "📝 Vim + plugins") run_script_with_spinner "editors/07-vim.sh" "Vim + plugins" ;;
+            "🔧 Extra tools (fzf, bat, eza, etc.)") run_script_with_spinner "terminal/08-extras.sh" "Extra tools" ;;
+            "🤖 AI tools") run_script_with_spinner "ai/09-ai-tools.sh" "AI tools" ;;
         esac
     done
 }
@@ -79,28 +98,87 @@ install_selected() {
 # Main
 echo ""
 echo "========================================="
-echo "  Development Environment Setup"
+echo "  Development Tools"
 echo "========================================="
 echo ""
 echo "OS: $OS"
 echo ""
 
-result=$(multi_select_menu "Select components to install:" \
-    "📦 Base system packages" \
-    "🐚 Zsh + Oh My Zsh" \
-    "🐳 Docker" \
-    "🐍 Python (pyenv)" \
-    "🟢 Node.js (nvm)" \
-    "☕ Java (SDKMAN!)" \
-    "📝 Vim + plugins" \
-    "🔧 Extra tools (fzf, bat, eza, etc.)")
+# Try to use gum for enhanced UI
+ensure_gum
+
+if command_exists gum; then
+    # Use gum confirm to verify user wants to proceed
+    if gum confirm "Run development environment setup?"; then
+        while true; do
+            set +e
+            result=$(gum choose --no-limit --header "Select components to install (Space to select, Enter to confirm):" --cursor ">" --selected.foreground="212" \
+                "📦 Base system packages" \
+                "🐚 Zsh + Oh My Zsh" \
+                "🐳 Docker" \
+                "🐍 Python (pyenv)" \
+                "🟢 Node.js (nvm)" \
+                "☕ Java (SDKMAN!)" \
+                "📝 Vim + plugins" \
+                "🔧 Extra tools (fzf, bat, eza, etc.)" \
+                "🤖 AI tools")
+            gum_status=$?
+            set -e
+
+            if [[ $gum_status -ne 0 ]]; then
+                # User pressed Esc/Ctrl+C
+                result="QUIT"
+                break
+            fi
+
+            if [[ -z "$result" ]]; then
+                log_warn "No components selected. Press Space to mark an item, then Enter to confirm (or Esc to quit)."
+                continue
+            fi
+
+            break
+        done
+    else
+        result="QUIT"
+    fi
+else
+    log_warn "gum not available, using basic menu"
+    result=$(multi_select_menu "Select components to install:" \
+        "📦 Base system packages" \
+        "🐚 Zsh + Oh My Zsh" \
+        "🐳 Docker" \
+        "🐍 Python (pyenv)" \
+        "🟢 Node.js (nvm)" \
+        "☕ Java (SDKMAN!)" \
+        "📝 Vim + plugins" \
+        "🔧 Extra tools (fzf, bat, eza, etc.)" \
+        "🤖 AI tools")
+fi
 
 if [[ "$result" == "QUIT" ]]; then
     log_info "Exiting. Bye!"
     exit 0
 elif [[ -n "$result" ]]; then
-    selections=($result)
-    install_selected "${selections[@]}"
+    # gum returns newline-separated, old menu returns space-separated
+    if command_exists gum; then
+        mapfile -t selections <<< "$result"
+    else
+        selections=($result)
+    fi
+
+    # Show confirmation
+    echo ""
+    log_info "Selected components:"
+    for sel in "${selections[@]}"; do
+        echo "  → $sel"
+    done
+    echo ""
+
+    if confirm "Proceed with installation?"; then
+        install_selected "${selections[@]}"
+    else
+        log_info "Installation cancelled."
+    fi
 else
-    log_info "No components selected. Use [a] to select all."
+    log_info "No components selected. (gum installed: $(command_exists gum && echo yes || echo no))"
 fi

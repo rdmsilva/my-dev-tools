@@ -176,6 +176,36 @@ aur_install() {
     esac
 }
 
+# Check/install gum
+ensure_gum() {
+    if command_exists gum; then
+        return
+    fi
+
+    local os
+    os=$(detect_os)
+
+    case "$os" in
+        arch)
+            sudo pacman -S --noconfirm --needed gum
+            ;;
+        debian)
+            sudo mkdir -p /etc/apt/keyrings
+            sudo gpg --no-default-keyring --keyring /etc/apt/keyrings/charm.gpg --keyserver https://charm.sh/gum.key --recv-keys 2582E0C5
+            echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+            sudo apt update
+            sudo apt install -y gum
+            ;;
+        macos)
+            brew install gum
+            ;;
+        *)
+            echo "ERROR: Unsupported OS for gum installation"
+            return 1
+            ;;
+    esac
+}
+
 # Multi-select menu with checkboxes
 # Usage: multi_select_menu "Title" "Item1" "Item2" "Item3"
 # Returns: space-separated selected indices (1-based)
@@ -243,4 +273,17 @@ multi_select_menu() {
         fi
     done
     echo "${result[@]}"
+}
+
+# Gum-based multi-select menu
+# Usage: gum_multi_select "Title" "Item1" "Item2" "Item3"
+# Returns: newline-separated selected items
+gum_multi_select() {
+    local title="$1"
+    shift
+    local items=("$@")
+
+    ensure_gum
+
+    gum choose --no-limit --header "$title" --cursor ">" --selected.foreground="212" "${items[@]}"
 }

@@ -8,22 +8,29 @@ Development environment setup for **Arch Linux**, **Debian/Ubuntu**, and **macOS
 ./install.sh
 ```
 
-This launches an interactive menu where you can install components individually or all at once.
+This launches an interactive menu (powered by [gum](https://github.com/charmbracelet/gum), auto-installed if missing) where you select which components to install. Mark items with **Space**, then press **Enter** to confirm — pressing Enter without marking anything re-prompts instead of exiting. If gum can't be installed, a plain text fallback menu is used instead.
+
+![Component selection menu](docs/menu-screenshot.png)
 
 ## Components
 
-| # | Component | Description |
-|---|-----------|-------------|
-| 1 | Base packages | git, curl, wget, jq, build tools |
-| 2 | Zsh | Shell + Oh My Zsh with plugins |
-| 3 | Docker | Engine + Compose |
-| 4 | Python | pyenv for version management |
-| 5 | Node.js | nvm for version management |
-| 6 | Java | SDKMAN! for JDK + build tools |
-| 7 | Vim | Editor + vim-plug plugins |
-| 8 | Extras | fzf, bat, eza, ripgrep, fd, lazygit, btop |
-| 9 | AI Tools | GitHub Copilot CLI, opencode, Cursor (optional) |
-| 10 | IDE Tools | VS Code, Neovim (optional) |
+| Component | Description |
+|-----------|-------------|
+| Base system packages | git, curl, wget, jq, build tools |
+| Zsh + Oh My Zsh | Shell with plugins |
+| Docker | Engine + Compose |
+| Python (pyenv) | Version management |
+| Node.js (nvm) | Version management |
+| Java (SDKMAN!) | JDK + build tools |
+| Vim + plugins | Editor + vim-plug plugins |
+| Extra tools | fzf, bat, eza, ripgrep, fd, lazygit, btop |
+| AI tools | GitHub Copilot CLI, opencode, Cursor (optional) |
+
+`scripts/editors/10-ide.sh` (VS Code, Neovim) is not in the installer menu yet — run it directly:
+
+```bash
+./scripts/editors/10-ide.sh
+```
 
 ## Supported OS
 
@@ -36,9 +43,9 @@ This launches an interactive menu where you can install components individually 
 You can also run individual scripts:
 
 ```bash
-bash scripts/01-base.sh
-bash scripts/02-zsh.sh
-bash scripts/03-docker.sh
+./scripts/base/01-base.sh
+./scripts/shell/02-zsh.sh
+./scripts/containers/03-docker.sh
 # ... etc
 ```
 

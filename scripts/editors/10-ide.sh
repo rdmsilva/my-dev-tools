@@ -7,7 +7,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/utils.sh"
+source "$SCRIPT_DIR/../utils.sh"
 
 OS=$(detect_os)
 
@@ -55,6 +55,44 @@ install_nvim() {
     esac
 }
 
+install_pycharm() {
+    if command_exists pycharm-community; then
+        log_ok "PyCharm Community already installed"
+        return 0
+    fi
+    log_info "💻 Installing PyCharm Community Edition..."
+    case "$OS" in
+        arch)
+            yay -S pycharm-community-edition 2>/dev/null || log_warn "PyCharm Community not available in AUR"
+            ;;
+        debian)
+            sudo snap install pycharm-community --classic 2>/dev/null || log_warn "PyCharm Community not available via snap"
+            ;;
+        macos)
+            brew install --cask pycharm-ce 2>/dev/null || log_warn "PyCharm Community install failed"
+            ;;
+    esac
+}
+
+install_intellij() {
+    if command_exists idea; then
+        log_ok "IntelliJ IDEA already installed"
+        return 0
+    fi
+    log_info "💻 Installing IntelliJ IDEA Community Edition..."
+    case "$OS" in
+        arch)
+            yay -S intellij-idea-community-edition 2>/dev/null || log_warn "IntelliJ IDEA not available in AUR"
+            ;;
+        debian)
+            sudo snap install intellij-idea-community --classic 2>/dev/null || log_warn "IntelliJ IDEA not available via snap"
+            ;;
+        macos)
+            brew install --cask intellij-idea-ce 2>/dev/null || log_warn "IntelliJ IDEA install failed"
+            ;;
+    esac
+}
+
 show_menu() {
     echo ""
     echo "========================================="
@@ -64,7 +102,9 @@ show_menu() {
     echo "Select tools to install:"
     echo "  1) VS Code"
     echo "  2) Neovim"
-    echo "  3) Install ALL"
+    echo "  3) PyCharm Community"
+    echo "  4) IntelliJ IDEA Community"
+    echo "  5) Install ALL"
     echo "  0) Back to main menu"
     echo ""
 }
@@ -89,6 +129,8 @@ run_tool() {
 install_all() {
     run_tool install_vscode "VS Code"
     run_tool install_nvim "Neovim"
+    run_tool install_pycharm "PyCharm Community"
+    run_tool install_intellij "IntelliJ IDEA Community"
 }
 
 run_tool() {
@@ -110,7 +152,9 @@ run_tool() {
 
 result=$(multi_select_menu "Select IDE tools to install:" \
     "VS Code" \
-    "Neovim")
+    "Neovim" \
+    "PyCharm Community" \
+    "IntelliJ IDEA Community")
 
 if [[ "$result" == "QUIT" ]]; then
     log_info "Exiting."
@@ -121,6 +165,8 @@ elif [[ -n "$result" ]]; then
         case $sel in
             1) run_tool install_vscode "VS Code" ;;
             2) run_tool install_nvim "Neovim" ;;
+            3) run_tool install_pycharm "PyCharm Community" ;;
+            4) run_tool install_intellij "IntelliJ IDEA Community" ;;
         esac
     done
 else
