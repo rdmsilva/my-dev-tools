@@ -79,7 +79,7 @@ call plug#end()
 " ------------------------------------------
 " Colorscheme
 " ------------------------------------------
-colorscheme gruvbox
+colorscheme wildcharm
 set background=dark
 
 " ------------------------------------------
