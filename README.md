@@ -8,7 +8,7 @@ Development environment setup for **Arch Linux**, **Debian/Ubuntu**, and **macOS
 ./install.sh
 ```
 
-This launches an interactive menu (powered by [gum](https://github.com/charmbracelet/gum), auto-installed if missing) where you select which components to install. Mark items with **Space**, then press **Enter** to confirm — pressing Enter without marking anything re-prompts instead of exiting. If gum can't be installed, a plain text fallback menu is used instead.
+This launches an interactive menu (powered by [gum](https://github.com/charmbracelet/gum), auto-installed if missing — **required**, the installer exits if it can't be installed). Navigate with the arrow keys and press **Enter** to pick one component; it installs (or opens a follow-up multi-select submenu, for components with more than one option) and then you're back at the main menu. Pick "🚪 Exit" or press **Esc** to quit.
 
 ![Component selection menu](docs/menu-screenshot.png)
 
@@ -16,21 +16,15 @@ This launches an interactive menu (powered by [gum](https://github.com/charmbrac
 
 | Component | Description |
 |-----------|-------------|
-| Base system packages | git, curl, wget, jq, build tools |
+| Base & Extra tools | Pick base packages (git, curl, jq, build tools) and/or individual extras: fzf, bat, eza, ripgrep, fd, htop, btop, ag, tree, tldr, kitty, lazygit — each shown with a short description; Ctrl+A selects all |
 | Zsh + Oh My Zsh | Shell with plugins |
 | Docker | Engine + Compose |
-| Python (pyenv) | Version management |
+| Python (pyenv/uv) | Choose pyenv, uv, or both |
 | Node.js (nvm) | Version management |
 | Java (SDKMAN!) | JDK + build tools |
 | Vim + plugins | Editor + vim-plug plugins |
-| Extra tools | fzf, bat, eza, ripgrep, fd, lazygit, btop |
-| AI tools | GitHub Copilot CLI, opencode, Cursor (optional) |
-
-`scripts/editors/10-ide.sh` (VS Code, Neovim) is not in the installer menu yet — run it directly:
-
-```bash
-./scripts/editors/10-ide.sh
-```
+| AI tools | GitHub Copilot CLI, opencode, Cursor, Hermes Agent (choose which) |
+| IDE tools | VS Code, Neovim, PyCharm Community, IntelliJ IDEA Community (choose which) |
 
 ## Supported OS
 

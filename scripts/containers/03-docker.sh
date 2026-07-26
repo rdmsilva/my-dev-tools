@@ -24,10 +24,9 @@ case "$OS" in
         sudo systemctl enable docker
         sudo systemctl start docker
 
-        if [[ -n "${SUDO_USER:-}" ]]; then
-            echo "  Adding user $SUDO_USER to docker group..."
-            sudo usermod -aG docker "$SUDO_USER"
-        fi
+        target_user="${SUDO_USER:-$USER}"
+        echo "  Adding user $target_user to docker group..."
+        sudo usermod -aG docker "$target_user"
         ;;
 
     debian)
@@ -62,10 +61,9 @@ case "$OS" in
         sudo systemctl enable docker
         sudo systemctl start docker
 
-        if [[ -n "${SUDO_USER:-}" ]]; then
-            echo "  Adding user $SUDO_USER to docker group..."
-            sudo usermod -aG docker "$SUDO_USER"
-        fi
+        target_user="${SUDO_USER:-$USER}"
+        echo "  Adding user $target_user to docker group..."
+        sudo usermod -aG docker "$target_user"
         ;;
 
     macos)

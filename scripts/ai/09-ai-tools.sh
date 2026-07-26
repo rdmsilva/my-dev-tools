@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../utils.sh"
 
 OS=$(detect_os)
+export OS
 
 install_copilot() {
     if command_exists github-copilot-cli; then
@@ -77,83 +78,48 @@ install_hermes() {
     curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
 }
 
-show_menu() {
-    echo ""
-    echo "========================================="
-    echo "  AI Tools Installer (Optional)"
-    echo "========================================="
-    echo ""
-    echo "Select tools to install:"
-    echo "  1) GitHub Copilot CLI"
-    echo "  2) opencode"
-    echo "  3) Cursor"
-    echo "  4) Hermes"
-    echo "  5) Install ALL"
-    echo "  0) Back to main menu"
-    echo ""
-}
+export -f install_copilot install_opencode install_cursor install_hermes
 
 run_tool() {
     local tool="$1"
     local name="$2"
-    echo ""
-    log_info "Installing: $name"
-    echo "-----------------------------------------"
-    "$tool"
+    gum spin --spinner dot --title "Installing: $name" --show-output -- bash -c "$tool"
     local status=$?
-    echo "-----------------------------------------"
-    if [ $status -eq 0 ]; then
-        log_ok "$name completed successfully"
-    else
+    if [ $status -ne 0 ]; then
         log_error "$name failed with status $status"
     fi
     return $status
 }
 
-install_all() {
-    run_tool install_copilot "GitHub Copilot CLI"
-    run_tool install_opencode "opencode"
-    run_tool install_cursor "Cursor"
-    run_tool install_hermes "Hermes Agent"
-}
+clear
+gum_title "🤖 AI Tools"
+while true; do
+    set +e
+    result=$(gum_multi_select "Select AI tools to install (Space to mark, Enter to confirm, Ctrl+A for all):" \
+        "GitHub Copilot CLI" \
+        "opencode" \
+        "Cursor" \
+        "Hermes Agent")
+    gum_status=$?
+    set -e
 
-run_tool() {
-    local tool="$1"
-    local name="$2"
-    echo ""
-    log_info "Installing: $name"
-    echo "-----------------------------------------"
-    "$tool"
-    local status=$?
-    echo "-----------------------------------------"
-    if [ $status -eq 0 ]; then
-        log_ok "$name completed successfully"
-    else
-        log_error "$name failed with status $status"
+    if [[ $gum_status -ne 0 ]]; then
+        clear
+        exit 130
     fi
-    return $status
-}
 
-result=$(multi_select_menu "Select AI tools to install:" \
-    "GitHub Copilot CLI" \
-    "opencode" \
-    "Cursor" \
-    "Hermes Agent")
+    if [[ -z "$result" ]]; then
+        log_warn "No tools selected. Press Space to mark an item, then Enter to confirm (or Esc to quit)."
+        continue
+    fi
 
-
-if [[ "$result" == "QUIT" ]]; then
-    log_info "Exiting."
-    exit 0
-elif [[ -n "$result" ]]; then
-    selections=($result)
+    mapfile -t selections <<< "$result"
     for sel in "${selections[@]}"; do
-        case $sel in
-            1) run_tool install_copilot "GitHub Copilot CLI" ;;
-            2) run_tool install_opencode "opencode" ;;
-            3) run_tool install_cursor "Cursor" ;;
-            4) run_tool install_hermes "Hermes Agent" ;;
+        case "$sel" in
+            "GitHub Copilot CLI") run_tool install_copilot "GitHub Copilot CLI" ;;
+            "opencode") run_tool install_opencode "opencode" ;;
+            "Cursor") run_tool install_cursor "Cursor" ;;
+            "Hermes Agent") run_tool install_hermes "Hermes Agent" ;;
         esac
     done
-else
-    log_info "No tools selected"
-fi
+done

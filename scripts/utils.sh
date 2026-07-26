@@ -3,34 +3,10 @@
 # Utility functions for multi-OS support
 #
 
-# Emojis
-E_INFO='ℹ️'
-E_OK='✅'
-E_WARN='⚠️'
-E_ERROR='❌'
-E_PKG='📦'
-E_CODE='💻'
-E_SHELL='🐚'
-E_DOCKER='🐳'
-E_PYTHON='🐍'
-E_NODE='🟢'
-E_JAVA='☕'
-E_VIM='📝'
-E_AI='🤖'
-E_TOOLS='🔧'
-E_TERM='🖥️'
-
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log_info()  { echo -e "${BLUE}${E_INFO}${NC} $1"; }
-log_ok()    { echo -e "${GREEN}${E_OK}${NC} $1"; }
-log_warn()  { echo -e "${YELLOW}${E_WARN}${NC} $1"; }
-log_error() { echo -e "${RED}${E_ERROR}${NC} $1"; }
+log_info()  { gum log --level info  "$1"; }
+log_ok()    { gum log --level info --level.foreground "10" "✅ $1"; }
+log_warn()  { gum log --level warn  "$1"; }
+log_error() { gum log --level error "$1"; }
 
 # Detect operating system
 # Returns: arch | debian | macos
@@ -204,75 +180,23 @@ ensure_gum() {
             return 1
             ;;
     esac
+
+    clear
 }
 
-# Multi-select menu with checkboxes
-# Usage: multi_select_menu "Title" "Item1" "Item2" "Item3"
-# Returns: space-separated selected indices (1-based)
-multi_select_menu() {
-    local title="$1"
-    shift
-    local items=("$@")
-    local count=${#items[@]}
-    local selected=()
-    local choice=""
-
-    # Initialize all as unselected
-    for ((i=0; i<count; i++)); do
-        selected[i]=0
-    done
-
-    while true; do
-        clear >&2
-        echo "" >&2
-        echo "$title" >&2
-        echo "-----------------------------------------" >&2
-        for ((i=0; i<count; i++)); do
-            if [[ ${selected[i]} -eq 1 ]]; then
-                echo "  [x] $((i+1))) ${items[i]}" >&2
-            else
-                echo "  [ ] $((i+1))) ${items[i]}" >&2
-            fi
-        done
-        echo "  [a] Select ALL" >&2
-        echo "  [n] Select NONE" >&2
-        echo "  [q] Quit" >&2
-        echo "" >&2
-        echo "  (Type number to toggle, Enter to install)" >&2
-        read -r -n 1 choice
-        echo "" >&2
-
-        if [[ -z "$choice" ]]; then
-            break
-        elif [[ "$choice" == "q" || "$choice" == "Q" ]]; then
-            echo "QUIT"
-            return
-        elif [[ "$choice" == "a" || "$choice" == "A" ]]; then
-            for ((i=0; i<count; i++)); do
-                selected[i]=1
-            done
-        elif [[ "$choice" == "n" || "$choice" == "N" ]]; then
-            for ((i=0; i<count; i++)); do
-                selected[i]=0
-            done
-        elif [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le "$count" ]]; then
-            local idx=$((choice - 1))
-            if [[ ${selected[idx]} -eq 1 ]]; then
-                selected[idx]=0
-            else
-                selected[idx]=1
-            fi
-        fi
-    done
-
-    # Return selected indices
-    local result=()
-    for ((i=0; i<count; i++)); do
-        if [[ ${selected[i]} -eq 1 ]]; then
-            result+=("$((i+1))")
-        fi
-    done
-    echo "${result[@]}"
+# Styled title banner shown at the top of a menu/submenu
+# Usage: gum_title "Line 1" ["Line 2" ...]
+gum_title() {
+    ensure_gum
+    gum style \
+        --border double \
+        --border-foreground 212 \
+        --foreground 212 \
+        --align center \
+        --width 50 \
+        --margin "1 0" \
+        --padding "1 4" \
+        "$@"
 }
 
 # Gum-based multi-select menu
@@ -282,8 +206,15 @@ gum_multi_select() {
     local title="$1"
     shift
     local items=("$@")
+    local height=$(( ${#items[@]} + 2 ))
 
     ensure_gum
 
-    gum choose --no-limit --header "$title" --cursor ">" --selected.foreground="212" "${items[@]}"
+    gum choose --no-limit --header "$title" --cursor ">" --height "$height" --selected.foreground="212" "${items[@]}"
 }
+
+# Exported so install_* functions can run under `gum spin -- bash -c '...'`
+# (a fresh subprocess that doesn't inherit shell functions unless exported).
+export -f log_info log_ok log_warn log_error detect_os pkg_install \
+    command_exists is_root confirm link_config install_yay aur_install \
+    ensure_gum gum_title gum_multi_select

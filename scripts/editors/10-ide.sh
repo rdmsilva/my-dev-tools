@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../utils.sh"
 
 OS=$(detect_os)
+export OS
 
 install_vscode() {
     if command_exists code; then
@@ -93,82 +94,48 @@ install_intellij() {
     esac
 }
 
-show_menu() {
-    echo ""
-    echo "========================================="
-    echo "  IDE Tools Installer (Optional)"
-    echo "========================================="
-    echo ""
-    echo "Select tools to install:"
-    echo "  1) VS Code"
-    echo "  2) Neovim"
-    echo "  3) PyCharm Community"
-    echo "  4) IntelliJ IDEA Community"
-    echo "  5) Install ALL"
-    echo "  0) Back to main menu"
-    echo ""
-}
+export -f install_vscode install_nvim install_pycharm install_intellij
 
 run_tool() {
     local tool="$1"
     local name="$2"
-    echo ""
-    log_info "Installing: $name"
-    echo "-----------------------------------------"
-    "$tool"
+    gum spin --spinner dot --title "Installing: $name" --show-output -- bash -c "$tool"
     local status=$?
-    echo "-----------------------------------------"
-    if [ $status -eq 0 ]; then
-        log_ok "$name completed successfully"
-    else
+    if [ $status -ne 0 ]; then
         log_error "$name failed with status $status"
     fi
     return $status
 }
 
-install_all() {
-    run_tool install_vscode "VS Code"
-    run_tool install_nvim "Neovim"
-    run_tool install_pycharm "PyCharm Community"
-    run_tool install_intellij "IntelliJ IDEA Community"
-}
+clear
+gum_title "💻 IDE Tools"
+while true; do
+    set +e
+    result=$(gum_multi_select "Select IDE tools to install (Space to mark, Enter to confirm, Ctrl+A for all):" \
+        "VS Code" \
+        "Neovim" \
+        "PyCharm Community" \
+        "IntelliJ IDEA Community")
+    gum_status=$?
+    set -e
 
-run_tool() {
-    local tool="$1"
-    local name="$2"
-    echo ""
-    log_info "Installing: $name"
-    echo "-----------------------------------------"
-    "$tool"
-    local status=$?
-    echo "-----------------------------------------"
-    if [ $status -eq 0 ]; then
-        log_ok "$name completed successfully"
-    else
-        log_error "$name failed with status $status"
+    if [[ $gum_status -ne 0 ]]; then
+        clear
+        exit 130
     fi
-    return $status
-}
 
-result=$(multi_select_menu "Select IDE tools to install:" \
-    "VS Code" \
-    "Neovim" \
-    "PyCharm Community" \
-    "IntelliJ IDEA Community")
+    if [[ -z "$result" ]]; then
+        log_warn "No tools selected. Press Space to mark an item, then Enter to confirm (or Esc to quit)."
+        continue
+    fi
 
-if [[ "$result" == "QUIT" ]]; then
-    log_info "Exiting."
-    exit 0
-elif [[ -n "$result" ]]; then
-    selections=($result)
+    mapfile -t selections <<< "$result"
     for sel in "${selections[@]}"; do
-        case $sel in
-            1) run_tool install_vscode "VS Code" ;;
-            2) run_tool install_nvim "Neovim" ;;
-            3) run_tool install_pycharm "PyCharm Community" ;;
-            4) run_tool install_intellij "IntelliJ IDEA Community" ;;
+        case "$sel" in
+            "VS Code") run_tool install_vscode "VS Code" ;;
+            "Neovim") run_tool install_nvim "Neovim" ;;
+            "PyCharm Community") run_tool install_pycharm "PyCharm Community" ;;
+            "IntelliJ IDEA Community") run_tool install_intellij "IntelliJ IDEA Community" ;;
         esac
     done
-else
-    log_info "No tools selected"
-fi
+done

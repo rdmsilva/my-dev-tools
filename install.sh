@@ -6,179 +6,126 @@
 
 set -euo pipefail
 
+clear
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "$SCRIPT_DIR/scripts/utils.sh"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-# Emojis
-E_INFO='ℹ️'
-E_OK='✅'
-E_WARN='⚠️'
-E_ERROR='❌'
-E_PKG='📦'
-E_CODE='💻'
-E_SHELL='🐚'
-E_DOCKER='🐳'
-E_PYTHON='🐍'
-E_NODE='🟢'
-E_JAVA='☕'
-E_VIM='📝'
-E_AI='🤖'
-E_TOOLS='🔧'
-E_TERM='🖥️'
-
-log_info()  { echo -e "${BLUE}${E_INFO}${NC} $1"; }
-log_ok()    { echo -e "${GREEN}${E_OK}${NC} $1"; }
-log_warn()  { echo -e "${YELLOW}${E_WARN}${NC} $1"; }
-log_error() { echo -e "${RED}${E_ERROR}${NC} $1"; }
-
 # Detect OS
 OS=$(detect_os)
-log_info "Detected OS: $OS"
 
 run_script() {
     local script="$1"
     local name="$2"
-    echo ""
-    log_info "Installing: $name"
-    echo "-----------------------------------------"
+    # No clear/header here: the submenu script itself clears the screen and
+    # shows its own title as soon as it starts (see gum_title calls below).
+    set +e
     bash "$SCRIPT_DIR/scripts/$script"
     local status=$?
-    echo "-----------------------------------------"
+    set -e
     if [ $status -eq 0 ]; then
         log_ok "$name completed successfully"
+    elif [ $status -eq 130 ]; then
+        : # user cancelled the submenu (Esc/Ctrl+C); it already logged that
     else
         log_error "$name failed with status $status"
     fi
-    return $status
+    return 0
 }
 
 run_script_with_spinner() {
     local script="$1"
     local name="$2"
 
-    if command_exists gum; then
-        gum spin --spinner dot --title "Installing: $name" --show-output -- bash "$SCRIPT_DIR/scripts/$script"
-        local status=$?
-        if [ $status -eq 0 ]; then
-            log_ok "$name completed successfully"
-        else
-            log_error "$name failed with status $status"
-        fi
-        return $status
+    set +e
+    gum spin --spinner dot --title "Installing: $name" --show-output -- bash "$SCRIPT_DIR/scripts/$script"
+    local status=$?
+    set -e
+    if [ $status -eq 0 ]; then
+        log_ok "$name completed successfully"
     else
-        run_script "$script" "$name"
+        log_error "$name failed with status $status"
     fi
+    return 0
 }
 
-install_selected() {
-    local selections=("$@")
-    for sel in "${selections[@]}"; do
-        case $sel in
-            "📦 Base system packages") run_script_with_spinner "base/01-base.sh" "Base system packages" ;;
-            "🐚 Zsh + Oh My Zsh") run_script_with_spinner "shell/02-zsh.sh" "Zsh + Oh My Zsh" ;;
-            "🐳 Docker") run_script_with_spinner "containers/03-docker.sh" "Docker" ;;
-            "🐍 Python (pyenv)") run_script_with_spinner "languages/04-python.sh" "Python (pyenv)" ;;
-            "🟢 Node.js (nvm)") run_script_with_spinner "languages/05-node.sh" "Node.js (nvm)" ;;
-            "☕ Java (SDKMAN!)") run_script_with_spinner "languages/06-java.sh" "Java (SDKMAN!)" ;;
-            "📝 Vim + plugins") run_script_with_spinner "editors/07-vim.sh" "Vim + plugins" ;;
-            "🔧 Extra tools (fzf, bat, eza, etc.)") run_script_with_spinner "terminal/08-extras.sh" "Extra tools" ;;
-            "🤖 AI tools") run_script_with_spinner "ai/09-ai-tools.sh" "AI tools" ;;
-        esac
-    done
+# Items that open their own multi-select submenu (run without a spinner so
+# the interactive prompt inside is usable); everything else installs directly.
+run_component() {
+    local choice="$1"
+    case "$choice" in
+        "🧰 Base & Extra tools") run_script "base/01-base.sh" "Base & Extra tools" ;;
+        "🐚 Zsh + Oh My Zsh") run_script_with_spinner "shell/02-zsh.sh" "Zsh + Oh My Zsh" ;;
+        "🐳 Docker") run_script_with_spinner "containers/03-docker.sh" "Docker" ;;
+        "🐍 Python (pyenv/uv)") run_script "languages/04-python.sh" "Python (pyenv/uv)" ;;
+        "🟢 Node.js (nvm)") run_script_with_spinner "languages/05-node.sh" "Node.js (nvm)" ;;
+        "☕ Java (SDKMAN!)") run_script_with_spinner "languages/06-java.sh" "Java (SDKMAN!)" ;;
+        "📝 Vim + plugins") run_script_with_spinner "editors/07-vim.sh" "Vim + plugins" ;;
+        "🤖 AI tools") run_script "ai/09-ai-tools.sh" "AI tools" ;;
+        "💻 IDE tools") run_script "editors/10-ide.sh" "IDE tools" ;;
+    esac
 }
+
+MENU_ITEMS=(
+    "🧰 Base & Extra tools"
+    "🐚 Zsh + Oh My Zsh"
+    "🐳 Docker"
+    "🐍 Python (pyenv/uv)"
+    "🟢 Node.js (nvm)"
+    "☕ Java (SDKMAN!)"
+    "📝 Vim + plugins"
+    "🤖 AI tools"
+    "💻 IDE tools"
+    "🚪 Exit"
+)
+
+# gum is required for the interactive menu (and for logging), so check
+# before relying on log_error, which itself shells out to `gum log`.
+ensure_gum
+if ! command_exists gum; then
+    echo "ERROR: gum is required to run this installer and could not be installed on this OS ($OS)." >&2
+    exit 1
+fi
+
+# Pre-authenticate sudo here, in the plain foreground, on OSes where component
+# scripts actually use it (arch/debian: pacman/apt, systemctl, usermod, etc.).
+# macOS components are all plain `brew` calls and never touch sudo, so skip
+# this there instead of prompting for a password nothing will use.
+# Component scripts call `sudo` while wrapped in `gum spin`, which takes over
+# the terminal to draw the animation — if sudo needed a password at that
+# point, the prompt would be invisible/unusable and the spinner would look
+# frozen. Keep the sudo timestamp refreshed in the background for the rest
+# of the session.
+if [[ "$OS" != "macos" ]]; then
+    if ! sudo -n true 2>/dev/null; then
+        log_info "Alguns componentes usam sudo — informe sua senha para continuar:"
+    fi
+    sudo -v
+    ( while true; do sudo -n true; sleep 60; kill -0 "$$" 2>/dev/null || exit; done ) 2>/dev/null &
+    SUDO_KEEPALIVE_PID=$!
+    trap 'kill "$SUDO_KEEPALIVE_PID" 2>/dev/null' EXIT
+fi
 
 # Main
-echo ""
-echo "========================================="
-echo "  Development Tools"
-echo "========================================="
-echo ""
-echo "OS: $OS"
-echo ""
-
-# Try to use gum for enhanced UI
-ensure_gum
-
-if command_exists gum; then
-    # Use gum confirm to verify user wants to proceed
-    if gum confirm "Run development environment setup?"; then
-        while true; do
-            set +e
-            result=$(gum choose --no-limit --header "Select components to install (Space to select, Enter to confirm):" --cursor ">" --selected.foreground="212" \
-                "📦 Base system packages" \
-                "🐚 Zsh + Oh My Zsh" \
-                "🐳 Docker" \
-                "🐍 Python (pyenv)" \
-                "🟢 Node.js (nvm)" \
-                "☕ Java (SDKMAN!)" \
-                "📝 Vim + plugins" \
-                "🔧 Extra tools (fzf, bat, eza, etc.)" \
-                "🤖 AI tools")
-            gum_status=$?
-            set -e
-
-            if [[ $gum_status -ne 0 ]]; then
-                # User pressed Esc/Ctrl+C
-                result="QUIT"
-                break
-            fi
-
-            if [[ -z "$result" ]]; then
-                log_warn "No components selected. Press Space to mark an item, then Enter to confirm (or Esc to quit)."
-                continue
-            fi
-
-            break
-        done
-    else
-        result="QUIT"
-    fi
-else
-    log_warn "gum not available, using basic menu"
-    result=$(multi_select_menu "Select components to install:" \
-        "📦 Base system packages" \
-        "🐚 Zsh + Oh My Zsh" \
-        "🐳 Docker" \
-        "🐍 Python (pyenv)" \
-        "🟢 Node.js (nvm)" \
-        "☕ Java (SDKMAN!)" \
-        "📝 Vim + plugins" \
-        "🔧 Extra tools (fzf, bat, eza, etc.)" \
-        "🤖 AI tools")
-fi
-
-if [[ "$result" == "QUIT" ]]; then
-    log_info "Exiting. Bye!"
-    exit 0
-elif [[ -n "$result" ]]; then
-    # gum returns newline-separated, old menu returns space-separated
-    if command_exists gum; then
-        mapfile -t selections <<< "$result"
-    else
-        selections=($result)
-    fi
-
-    # Show confirmation
+MENU_HEIGHT=$(( ${#MENU_ITEMS[@]} + 2 ))
+while true; do
+    gum_title "🚀 Welcome DevTools" "Development Environment Setup" "OS: $OS"
     echo ""
-    log_info "Selected components:"
-    for sel in "${selections[@]}"; do
-        echo "  → $sel"
-    done
-    echo ""
+    set +e
+    choice=$(gum choose --header "Select a component to install (Enter to select, Esc to quit):" --cursor ">" --height "$MENU_HEIGHT" --padding "1 2" "${MENU_ITEMS[@]}")
+    gum_status=$?
+    set -e
 
-    if confirm "Proceed with installation?"; then
-        install_selected "${selections[@]}"
-    else
-        log_info "Installation cancelled."
+    if [[ $gum_status -ne 0 ]]; then
+        # Esc/Ctrl+C: gum leaves a "nothing selected" line behind, erase it.
+        printf '\033[1A\033[2K'
     fi
-else
-    log_info "No components selected. (gum installed: $(command_exists gum && echo yes || echo no))"
-fi
+
+    if [[ $gum_status -ne 0 || -z "$choice" || "$choice" == "🚪 Exit" ]]; then
+        log_info "Bye!"
+        break
+    fi
+
+    run_component "$choice"
+done
